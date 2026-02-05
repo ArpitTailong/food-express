@@ -1,0 +1,225 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+    
+  # Redis for rate limiting
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OKTA_ISSUER_URI:https://dev-foodexpress.okta.com/oauth2/default}
+          jwk-set-uri: ${OKTA_JWK_URI:https://dev-foodexpress.okta.com/oauth2/default/v1/keys}
+
+  # ==========================================
+  # CLOUD GATEWAY ROUTES
+  # ==========================================
+  cloud:
+    gateway:
+      # Global CORS
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            
+      # Default Filters for all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: Retry
+          args:
+            retries: 3
+            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+            methods: GET
+            backoff:
+              firstBackoff: 100ms
+              maxBackoff: 500ms
+              factor: 2
+              
+      # ==========================================
+      # ROUTE DEFINITIONS
+      # ==========================================
+      routes:
+        # -----------------------------------------
+        # Auth Service
+        # -----------------------------------------
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+            
+        # -----------------------------------------
+        # User Service
+        # -----------------------------------------
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: userServiceCircuitBreaker
+                fallbackUri: forward:/fallback/user
+                
+        # -----------------------------------------
+        # Order Service
+        # -----------------------------------------
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - StripPrefix=0
+            - name: CircuitBreaker
+              args:
+                name: orderServiceCircuitBreaker
+                fallbackUri: forward:/fallback/order
+                
+        # -----------------------------------------
+        # Payment Service (Stricter rate limiting)
+        # -----------------------------------------
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - StripPrefix=0
+            - name: RateLimitingFilter
+              args:
+                name: payment-api
+                limitForPeriod: 10
+                limitRefreshPeriodSeconds: 1
+                timeoutDurationMs: 0
+            - name: CircuitBreaker
+              args:
+                name: paymentServiceCircuitBreaker
+                fallbackUri: forward:/fallback/payment
+                
+        # -----------------------------------------
+        # Notification Service
+        # -----------------------------------------
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+            
+        # -----------------------------------------
+        # Analytics Service
+        # -----------------------------------------
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/v1/analytics/**
+          filters:
+            - StripPrefix=0
+            
+        # -----------------------------------------
+        # Swagger Documentation Aggregation
+        # -----------------------------------------
+        - id: auth-service-docs
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth-service/v3/api-docs
+          filters:
+            - RewritePath=/auth-service/(?<segment>.*), /$\{segment}
+            
+        - id: user-service-docs
+          uri: lb://user-service
+          predicates:
+            - Path=/user-service/v3/api-docs
+          filters:
+            - RewritePath=/user-service/(?<segment>.*), /$\{segment}
+            
+        - id: order-service-docs
+          uri: lb://order-service
+          predicates:
+            - Path=/order-service/v3/api-docs
+          filters:
+            - RewritePath=/order-service/(?<segment>.*), /$\{segment}
+            
+        - id: payment-service-docs
+          uri: lb://payment-service
+          predicates:
+            - Path=/payment-service/v3/api-docs
+          filters:
+            - RewritePath=/payment-service/(?<segment>.*), /$\{segment}
+
+# ==========================================
+# EUREKA CLIENT
+# ==========================================
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://admin:admin@localhost:8761/eureka}
+
+# ==========================================
+# RESILIENCE4J
+# ==========================================
+resilience4j:
+  circuitbreaker:
+    instances:
+      userServiceCircuitBreaker:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 3
+        
+      orderServiceCircuitBreaker:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        
+      paymentServiceCircuitBreaker:
+        slidingWindowSize: 5
+        failureRateThreshold: 30
+        waitDurationInOpenState: 30000
+        permittedNumberOfCallsInHalfOpenState: 2
+
+  timelimiter:
+    instances:
+      default:
+        timeoutDuration: 10s
+
+# ==========================================
+# ACTUATOR
+# ==========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    gateway:
+      enabled: true
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ==========================================
+# LOGGING
+# ==========================================
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    com.foodexpress.gateway: DEBUG
+    org.springframework.security: DEBUG

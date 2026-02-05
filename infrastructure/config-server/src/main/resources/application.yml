@@ -1,0 +1,89 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  
+  # Security for config endpoints
+  security:
+    user:
+      name: ${CONFIG_USERNAME:configuser}
+      password: ${CONFIG_PASSWORD:configpass}
+  
+  # ==========================================
+  # CONFIG SERVER - FILE SYSTEM BACKEND
+  # For development - uses local configs folder
+  # ==========================================
+  profiles:
+    active: native
+    
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/configs
+          
+---
+# ==========================================
+# GIT BACKEND PROFILE (for production)
+# ==========================================
+spring:
+  config:
+    activate:
+      on-profile: git
+      
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${CONFIG_GIT_URI:https://github.com/foodexpress/config-repo}
+          default-label: main
+          search-paths: 
+            - '{application}'
+          clone-on-start: true
+          force-pull: true
+          # For private repos
+          username: ${CONFIG_GIT_USERNAME:}
+          password: ${CONFIG_GIT_PASSWORD:}
+          # Refresh rate
+          refresh-rate: 30
+
+---
+spring:
+  config:
+    activate:
+      on-profile: default
+
+# ==========================================
+# EUREKA CLIENT CONFIGURATION
+# ==========================================
+eureka:
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://admin:admin@localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+
+# ==========================================
+# ACTUATOR
+# ==========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,busrefresh
+  endpoint:
+    health:
+      show-details: always
+
+# ==========================================
+# LOGGING
+# ==========================================
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.config: DEBUG

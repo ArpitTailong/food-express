@@ -1,0 +1,63 @@
+# ==============================================
+# AUTH SERVICE - LOCAL PROFILE
+# ==============================================
+# This profile disables external dependencies
+# and uses local JWT generation
+# ==============================================
+
+server:
+  port: 8081
+
+spring:
+  # Disable Config Server import
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+  config:
+    import: "optional:"
+  
+  # Disable Redis auto-configuration
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.redisson.spring.starter.RedissonAutoConfigurationV2
+  
+  # Disable Redis (use in-memory token storage)
+  data:
+    redis:
+      repositories:
+        enabled: false
+  
+  # Disable OAuth2/OKTA for local testing
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081
+      client:
+        registration:
+          okta:
+            client-id: local-client-id
+            client-secret: local-client-secret
+
+# JWT Configuration
+jwt:
+  secret: local-256-bit-secret-key-for-signing-jwt-tokens-must-be-at-least-32-characters-long
+  access-token-expiration-ms: 3600000   # 1 hour for local testing
+  refresh-token-expiration-ms: 86400000 # 24 hours
+  issuer: http://localhost:8081
+
+# Eureka disabled
+eureka:
+  client:
+    enabled: false
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.foodexpress.auth: DEBUG
+    org.springframework.security: DEBUG

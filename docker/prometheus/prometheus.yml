@@ -1,0 +1,35 @@
+# Prometheus Configuration for Food Express
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Spring Boot Actuator endpoints
+  - job_name: 'spring-boot-services'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'discovery-server:8761'
+          - 'config-server:8888'
+          - 'api-gateway:8080'
+          - 'auth-service:8081'
+          - 'payment-service:8082'
+          - 'order-service:8083'
+          - 'user-service:8084'
+          - 'notification-service:8085'
+          - 'analytics-service:8086'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):(\d+)'
+        target_label: instance
+        replacement: '$1'
+      - source_labels: [__address__]
+        regex: '([^:]+):(\d+)'
+        target_label: service
+        replacement: '$1'

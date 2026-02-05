@@ -1,0 +1,67 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: discovery-server
+  
+  # Security credentials (override in production via env vars)
+  security:
+    user:
+      name: ${EUREKA_USERNAME:admin}
+      password: ${EUREKA_PASSWORD:admin}
+
+# ==========================================
+# EUREKA SERVER CONFIGURATION
+# ==========================================
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+    
+  client:
+    # This is the server itself, don't register/fetch from others
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@${eureka.instance.hostname}:${server.port}/eureka/
+    
+  server:
+    # Self-preservation mode (production should enable this)
+    enable-self-preservation: true
+    
+    # Response cache update interval
+    response-cache-update-interval-ms: 3000
+    
+    # Eviction interval for expired instances
+    eviction-interval-timer-in-ms: 10000
+    
+    # Renewal threshold percentage
+    renewal-percent-threshold: 0.85
+    
+    # Wait time before cleaning registry
+    wait-time-in-ms-when-sync-empty: 0
+
+# ==========================================
+# ACTUATOR CONFIGURATION
+# ==========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ==========================================
+# LOGGING
+# ==========================================
+logging:
+  level:
+    root: INFO
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO

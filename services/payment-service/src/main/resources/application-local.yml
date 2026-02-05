@@ -1,0 +1,93 @@
+# ==============================================
+# PAYMENT SERVICE - LOCAL PROFILE
+# ==============================================
+# This profile uses H2 in-memory database and
+# disables external dependencies for local testing
+# ==============================================
+
+server:
+  port: 8082
+
+spring:
+  # Disable Config Server
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+  config:
+    import: "optional:"
+  
+  # Exclude Redisson auto-configuration
+  autoconfigure:
+    exclude:
+      - org.redisson.spring.starter.RedissonAutoConfigurationV2
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  
+  # H2 Database
+  datasource:
+    url: jdbc:h2:mem:payment_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  # H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # Disable Flyway
+  flyway:
+    enabled: false
+  
+  # Disable Redis
+  data:
+    redis:
+      repositories:
+        enabled: false
+  
+  # Kafka disabled
+  kafka:
+    bootstrap-servers: localhost:9092
+    listener:
+      auto-startup: false
+  
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081
+
+# JWT Configuration (same secret as auth-service)
+jwt:
+  secret: local-256-bit-secret-key-for-signing-jwt-tokens-must-be-at-least-32-characters-long
+
+# Disable Redisson
+redisson:
+  config: ""
+
+# Eureka disabled
+eureka:
+  client:
+    enabled: false
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.foodexpress.payment: DEBUG
+    org.hibernate.SQL: DEBUG

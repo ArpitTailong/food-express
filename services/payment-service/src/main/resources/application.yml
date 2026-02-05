@@ -1,0 +1,295 @@
+spring:
+  application:
+    name: payment-service
+  
+  # Profile
+  profiles:
+    active: dev
+  
+  # Database Configuration (PostgreSQL)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payment_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: PaymentServiceHikariPool
+  
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate  # Use Flyway for schema management
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  # Flyway Migration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    baseline-version: 0
+    out-of-order: false
+  
+  # Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 20
+          min-idle: 5
+          max-wait: 2000ms
+  
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    
+    # Producer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      transaction-id-prefix: payment-tx-
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 1
+    
+    # Consumer
+    consumer:
+      group-id: payment-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
+  
+  # Security (OAuth2 Resource Server)
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/auth-service
+          jwk-set-uri: http://localhost:8081/auth-service/api/v1/auth/.well-known/jwks.json
+
+# Server Configuration
+server:
+  port: 8083
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    metadata-map:
+      version: 1.0.0
+      description: "Payment processing service"
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,ratelimiters
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentGateway:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 5s
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.Exception
+  
+  retry:
+    instances:
+      paymentGateway:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2.0
+        retry-exceptions:
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  
+  ratelimiter:
+    instances:
+      createPayment:
+        limit-refresh-period: 1m
+        limit-for-period: 10
+        timeout-duration: 5s
+      refundPayment:
+        limit-refresh-period: 1m
+        limit-for-period: 5
+        timeout-duration: 5s
+      retryPayment:
+        limit-refresh-period: 1m
+        limit-for-period: 3
+        timeout-duration: 5s
+  
+  timelimiter:
+    instances:
+      paymentGateway:
+        timeout-duration: 10s
+        cancel-running-future: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.foodexpress.payment: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.springframework.kafka: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
+
+# Application-specific Configuration
+app:
+  kafka:
+    topics:
+      payment-events: payment-events
+      order-events: order-events
+  payment:
+    max-retry-attempts: 3
+    idempotency-ttl-hours: 24
+    stuck-payment-timeout-minutes: 30
+  gateway:
+    provider: MOCK  # MOCK, STRIPE, RAZORPAY, etc.
+    mock:
+      enabled: true
+      failure-rate: 0.05  # 5% random failures for testing
+
+# OpenAPI/Swagger
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: alpha
+  show-actuator: true
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres-prod:5432/payment_db}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 50
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:redis-prod}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:kafka-prod:9092}
+  
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI}
+          jwk-set-uri: ${JWK_SET_URI}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://discovery-server:8761/eureka/}
+
+logging:
+  level:
+    root: INFO
+    com.foodexpress.payment: INFO
+    org.hibernate.SQL: ERROR
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1  # 10% sampling in production
+
+app:
+  gateway:
+    provider: ${PAYMENT_GATEWAY_PROVIDER:STRIPE}
+    mock:
+      enabled: false
