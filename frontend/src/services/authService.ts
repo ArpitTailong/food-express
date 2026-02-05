@@ -1,5 +1,5 @@
 import api from './api'
-import type { LoginRequest, RegisterRequest, AuthResponse, User } from '../types'
+import type { LoginRequest, RegisterRequest, AuthResponse, User, UserInfo } from '../types'
 
 export const authService = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
@@ -13,7 +13,11 @@ export const authService = {
   },
   
   logout: async (): Promise<void> => {
-    await api.post('/api/auth/logout')
+    try {
+      await api.post('/api/auth/logout')
+    } catch (e) {
+      // Ignore logout errors
+    }
   },
   
   refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
@@ -21,10 +25,18 @@ export const authService = {
     return response.data
   },
   
-  getCurrentUser: async (): Promise<{ success: boolean; data: User }> => {
+  getCurrentUser: async (): Promise<{ success: boolean; data: UserInfo }> => {
     const response = await api.get('/api/auth/me')
     return response.data
   },
+  
+  // Convert UserInfo to User object for frontend
+  userInfoToUser: (info: UserInfo): User => ({
+    id: info.id,
+    email: info.email,
+    roles: info.roles,
+    role: (info.roles[0] as User['role']) || 'CUSTOMER',
+  }),
   
   forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
     const response = await api.post('/api/auth/forgot-password', { email })

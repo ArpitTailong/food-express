@@ -33,10 +33,11 @@ export default function LoginPage() {
       if (response.success && response.data) {
         const { accessToken, refreshToken } = response.data
         
-        // Get user info
+        // Get user info and convert to User
         const userResponse = await authService.getCurrentUser()
+        const user = authService.userInfoToUser(userResponse.data)
         
-        setAuth(userResponse.data, accessToken, refreshToken)
+        setAuth(user, accessToken, refreshToken)
         toast.success('Welcome back!')
         navigate('/')
       }
@@ -46,6 +47,25 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Demo login for testing without backend
+  const handleDemoLogin = async (role: 'CUSTOMER' | 'ADMIN') => {
+    setIsLoading(true)
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    const demoUser = {
+      id: role === 'ADMIN' ? 'demo-admin-001' : 'demo-user-001',
+      email: role === 'ADMIN' ? 'admin@foodexpress.com' : 'customer@foodexpress.com',
+      firstName: role === 'ADMIN' ? 'Admin' : 'John',
+      lastName: 'Demo',
+      role: role,
+    }
+    
+    setAuth(demoUser, 'demo-access-token', 'demo-refresh-token')
+    toast.success(`Welcome, ${demoUser.firstName}!`)
+    navigate(role === 'ADMIN' ? '/admin' : '/')
+    setIsLoading(false)
   }
 
   return (
@@ -194,11 +214,27 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Demo credentials */}
+      {/* Demo login buttons */}
       <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-        <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials:</p>
-        <p className="text-sm text-blue-700">Email: admin@foodexpress.com</p>
-        <p className="text-sm text-blue-700">Password: password123</p>
+        <p className="text-sm text-blue-800 font-medium mb-3">Quick Demo Login (no backend required):</p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => handleDemoLogin('CUSTOMER')}
+            disabled={isLoading}
+            className="btn-outline flex-1 text-sm"
+          >
+            Login as Customer
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDemoLogin('ADMIN')}
+            disabled={isLoading}
+            className="btn-primary flex-1 text-sm"
+          >
+            Login as Admin
+          </button>
+        </div>
       </div>
     </motion.div>
   )

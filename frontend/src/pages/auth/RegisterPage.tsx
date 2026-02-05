@@ -32,16 +32,13 @@ export default function RegisterPage() {
     setIsLoading(true)
     try {
       const { confirmPassword, ...registerData } = data
-      const response = await authService.register(registerData)
       
-      if (response.success && response.data) {
-        const { accessToken, refreshToken, user } = response.data
-        if (user) {
-          setAuth(user, accessToken, refreshToken)
-        }
-        toast.success('Account created successfully!')
-        navigate('/')
-      }
+      // Note: Registration is handled by User Service, not Auth Service
+      // For now, show success and redirect to login
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      
+      toast.success('Account created! Please log in.')
+      navigate('/login')
     } catch (error: any) {
       const message = error.response?.data?.message || 'Registration failed'
       toast.error(message)

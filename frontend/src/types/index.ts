@@ -2,12 +2,20 @@
 export interface User {
   id: string
   email: string
-  firstName: string
-  lastName: string
+  firstName?: string
+  lastName?: string
   phoneNumber?: string
   role: 'CUSTOMER' | 'ADMIN' | 'RESTAURANT_OWNER' | 'DRIVER'
+  roles?: string[]
   avatar?: string
-  createdAt: string
+  createdAt?: string
+}
+
+// Backend UserInfo response (from /api/auth/me)
+export interface UserInfo {
+  id: string
+  email: string
+  roles: string[]
 }
 
 // Auth types
