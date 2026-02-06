@@ -85,9 +85,32 @@ eureka:
   client:
     enabled: false
 
+# Gateway Configuration
+# Using Razorpay for real payment testing
+app:
+  gateway:
+    provider: RAZORPAY  # Using Razorpay for Indian payments
+
+# ===========================================
+# PAYMENT GATEWAY CONFIGURATIONS (Local)
+# ===========================================
+
+# Razorpay Configuration (Recommended for India)
+razorpay:
+  key-id: rzp_test_SCtKfVntrKGE4L
+  key-secret: Ln9cedR0uvlfrQXXYUFnmMSI
+
+# Stripe Configuration (for international testing)
+# Replace with your Stripe TEST mode keys from https://dashboard.stripe.com/test/apikeys
+stripe:
+  api-key: ${STRIPE_API_KEY:sk_test_placeholder}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_placeholder}
+
 # Logging
 logging:
   level:
     root: INFO
     com.foodexpress.payment: DEBUG
+    com.razorpay: DEBUG
+    com.stripe: DEBUG
     org.hibernate.SQL: DEBUG

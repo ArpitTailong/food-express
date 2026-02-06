@@ -23,6 +23,9 @@ public class UserProfile {
     @Column(nullable = false, unique = true)
     private String email;
     
+    @Column(name = "password_hash")
+    private String passwordHash;
+    
     @Column(name = "phone_number", unique = true)
     private String phoneNumber;
     
@@ -256,6 +259,12 @@ public class UserProfile {
     public void setEmail(String email) { 
         this.email = email; 
         this.emailVerifiedAt = null; // Reset verification on email change
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { 
+        this.passwordHash = passwordHash;
         this.updatedAt = LocalDateTime.now();
     }
     

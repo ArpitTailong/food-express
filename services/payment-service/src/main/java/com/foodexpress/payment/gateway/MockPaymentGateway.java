@@ -3,7 +3,6 @@ package com.foodexpress.payment.gateway;
 import com.foodexpress.payment.dto.PaymentDTOs.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -20,9 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Card brand detection
  * - Delay simulation for realistic timing
  * 
- * PRODUCTION: Replace with real Stripe/Razorpay implementation.
+ * PRODUCTION: Use StripePaymentGateway or another real implementation.
+ * 
+ * Configuration: Set app.gateway.provider=MOCK in application.yml
  */
-@Component
 public class MockPaymentGateway implements PaymentGateway {
     
     private static final Logger log = LoggerFactory.getLogger(MockPaymentGateway.class);

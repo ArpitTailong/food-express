@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -25,6 +27,11 @@ import java.nio.charset.StandardCharsets;
 public class SecurityConfig {
     
     @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+    
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
@@ -36,6 +43,11 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/prometheus").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
+                
+                // Public endpoints - registration and credential verification
+                .requestMatchers(HttpMethod.POST, "/api/v1/users/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/users/credentials").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/users/*/credentials").permitAll()
                 
                 // User profile - authenticated
                 .requestMatchers("/api/v1/users/me/**").authenticated()

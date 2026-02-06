@@ -13,6 +13,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final AddressRepository addressRepository;
+    private final PasswordEncoder passwordEncoder;
     
     private final Counter usersCreated;
     private final Counter usersDeleted;
@@ -39,10 +41,12 @@ public class UserService {
     public UserService(
             UserRepository userRepository,
             AddressRepository addressRepository,
+            PasswordEncoder passwordEncoder,
             MeterRegistry meterRegistry) {
         
         this.userRepository = userRepository;
         this.addressRepository = addressRepository;
+        this.passwordEncoder = passwordEncoder;
         
         this.usersCreated = Counter.builder("users.created").register(meterRegistry);
         this.usersDeleted = Counter.builder("users.deleted").register(meterRegistry);
@@ -75,6 +79,11 @@ public class UserService {
                 request.role()
         );
         
+        // Hash and set password if provided
+        if (request.password() != null && !request.password().isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode(request.password()));
+        }
+        
         if (request.phoneNumber() != null) {
             user.setPhoneNumber(request.phoneNumber());
         }
@@ -86,12 +95,99 @@ public class UserService {
             user.addAddress(address);
         }
         
+        // Auto-activate users for now (in production, send verification email)
+        user.activate();
+        
         user = userRepository.save(user);
         usersCreated.increment();
         
         log.info("User {} created successfully", userId);
         
         return UserDTOs.toResponse(user);
+    }
+    
+    // ========================================
+    // USER REGISTRATION (Public endpoint for signup)
+    // ========================================
+    
+    @Transactional
+    public UserResponse registerUser(RegisterUserRequest request) {
+        log.info("Registering new user with email {}", request.email());
+        
+        // Validate email uniqueness
+        if (userRepository.existsByEmail(request.email())) {
+            throw new DuplicateEmailException(request.email());
+        }
+        
+        // Validate phone uniqueness if provided
+        if (request.phoneNumber() != null && userRepository.existsByPhoneNumber(request.phoneNumber())) {
+            throw new DuplicatePhoneException(request.phoneNumber());
+        }
+        
+        String userId = UUID.randomUUID().toString();
+        
+        // Create user
+        UserProfile user = new UserProfile(
+                userId,
+                request.email(),
+                request.firstName(),
+                request.lastName(),
+                UserRole.CUSTOMER // Default role for registration
+        );
+        
+        // Hash and set password
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        
+        if (request.phoneNumber() != null) {
+            user.setPhoneNumber(request.phoneNumber());
+        }
+        
+        // Auto-activate users for now (in production, send verification email)
+        user.activate();
+        
+        user = userRepository.save(user);
+        usersCreated.increment();
+        
+        log.info("User {} registered successfully", userId);
+        
+        return UserDTOs.toResponse(user);
+    }
+    
+    // ========================================
+    // CREDENTIAL VERIFICATION (for auth-service)
+    // ========================================
+    
+    @Transactional(readOnly = true)
+    public Optional<UserCredentialsResponse> getUserCredentialsByEmail(String email) {
+        log.debug("Fetching credentials for email {}", email);
+        
+        return userRepository.findByEmail(email)
+                .map(user -> new UserCredentialsResponse(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getPasswordHash(),
+                        user.getRole().name(),
+                        user.getStatus().name(),
+                        user.getStatus() == UserStatus.ACTIVE,
+                        user.getStatus() != UserStatus.SUSPENDED
+                ));
+    }
+    
+    @Transactional(readOnly = true)
+    public Optional<UserCredentialsResponse> getUserCredentialsById(String userId) {
+        log.debug("Fetching credentials for userId {}", userId);
+        
+        return userRepository.findById(userId)
+                .filter(u -> u.getStatus() != UserStatus.DELETED)
+                .map(user -> new UserCredentialsResponse(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getPasswordHash(),
+                        user.getRole().name(),
+                        user.getStatus().name(),
+                        user.getStatus() == UserStatus.ACTIVE,
+                        user.getStatus() != UserStatus.SUSPENDED
+                ));
     }
     
     @Transactional(readOnly = true)

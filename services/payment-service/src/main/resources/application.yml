@@ -225,10 +225,29 @@ app:
     idempotency-ttl-hours: 24
     stuck-payment-timeout-minutes: 30
   gateway:
-    provider: MOCK  # MOCK, STRIPE, RAZORPAY, etc.
+    provider: MOCK  # MOCK, RAZORPAY, or STRIPE
     mock:
       enabled: true
       failure-rate: 0.05  # 5% random failures for testing
+
+# ===========================================
+# PAYMENT GATEWAY CONFIGURATIONS
+# ===========================================
+
+# Razorpay Payment Gateway (Recommended for India)
+# Supports: UPI, Cards, Net Banking, Wallets, EMI
+# To use Razorpay, set app.gateway.provider to RAZORPAY
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder}  # Your Razorpay Key ID
+  key-secret: ${RAZORPAY_KEY_SECRET:placeholder}   # Your Razorpay Key Secret
+  # Get your keys from: https://dashboard.razorpay.com/app/keys
+
+# Stripe Payment Gateway (International)
+# To use Stripe, set app.gateway.provider to STRIPE
+stripe:
+  api-key: ${STRIPE_API_KEY:sk_test_placeholder}  # Your Stripe secret key
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_placeholder}  # For webhook signature verification
+  # Get your keys from: https://dashboard.stripe.com/apikeys
 
 # OpenAPI/Swagger
 springdoc:

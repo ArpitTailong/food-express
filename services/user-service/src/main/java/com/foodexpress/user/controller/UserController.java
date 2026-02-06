@@ -38,6 +38,62 @@ public class UserController {
     }
     
     // ========================================
+    // PUBLIC ENDPOINTS (Registration & Credentials)
+    // ========================================
+    
+    @PostMapping("/register")
+    @Timed(value = "user.register", description = "Time taken to register user")
+    @Operation(summary = "Register new user", description = "Public endpoint for user registration")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "User registered"),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "409", description = "Email or phone already exists")
+    })
+    public ResponseEntity<UserResponse> registerUser(
+            @Valid @RequestBody RegisterUserRequest request) {
+        
+        log.info("Registering new user with email {}", request.email());
+        
+        UserResponse response = userService.registerUser(request);
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+    
+    @PostMapping("/credentials")
+    @Timed(value = "user.credentials", description = "Time taken to fetch credentials")
+    @Operation(summary = "Get user credentials by email", description = "Internal endpoint for auth-service to verify user credentials")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Credentials found"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserCredentialsResponse> getUserCredentials(
+            @Valid @RequestBody VerifyCredentialsRequest request) {
+        
+        log.debug("Fetching credentials for email {}", request.email());
+        
+        return userService.getUserCredentialsByEmail(request.email())
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    @GetMapping("/{userId}/credentials")
+    @Timed(value = "user.credentials.byId", description = "Time taken to fetch credentials by ID")
+    @Operation(summary = "Get user credentials by ID", description = "Internal endpoint for auth-service to verify user credentials")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Credentials found"),
+        @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserCredentialsResponse> getUserCredentialsById(
+            @PathVariable String userId) {
+        
+        log.debug("Fetching credentials for userId {}", userId);
+        
+        return userService.getUserCredentialsById(userId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    // ========================================
     // PROFILE ENDPOINTS
     // ========================================
     

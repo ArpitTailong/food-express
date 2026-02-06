@@ -25,6 +25,10 @@ public final class UserDTOs {
             @Email(message = "Invalid email format")
             String email,
             
+            @NotBlank(message = "Password is required")
+            @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+            String password,
+            
             @NotBlank(message = "First name is required")
             @Size(min = 1, max = 100)
             String firstName,
@@ -296,4 +300,45 @@ public final class UserDTOs {
                 user.getFavoriteMenuItems()
         );
     }
+    
+    // ========================================
+    // AUTHENTICATION DTOs (for auth-service integration)
+    // ========================================
+    
+    public record VerifyCredentialsRequest(
+            @NotBlank(message = "Email is required")
+            @Email(message = "Invalid email format")
+            String email
+    ) {}
+    
+    public record UserCredentialsResponse(
+            String userId,
+            String email,
+            String passwordHash,
+            String role,
+            String status,
+            boolean enabled,
+            boolean accountNonLocked
+    ) {}
+    
+    public record RegisterUserRequest(
+            @NotBlank(message = "Email is required")
+            @Email(message = "Invalid email format")
+            String email,
+            
+            @NotBlank(message = "Password is required")
+            @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+            String password,
+            
+            @NotBlank(message = "First name is required")
+            @Size(min = 1, max = 100)
+            String firstName,
+            
+            @NotBlank(message = "Last name is required")
+            @Size(min = 1, max = 100)
+            String lastName,
+            
+            @Pattern(regexp = "^\\+?[1-9]\\d{9,14}$", message = "Invalid phone number")
+            String phoneNumber
+    ) {}
 }

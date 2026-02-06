@@ -1,5 +1,6 @@
 package com.foodexpress.auth.service;
 
+import com.foodexpress.auth.client.UserServiceClient;
 import com.foodexpress.auth.domain.AuthDomain.*;
 import com.foodexpress.auth.dto.AuthDTOs.*;
 import com.foodexpress.common.exception.FoodExpressException;
@@ -24,13 +25,16 @@ public class AuthenticationService {
     private final JwtTokenService jwtTokenService;
     private final TokenStorage tokenStorage;
     private final PasswordEncoder passwordEncoder;
+    private final UserServiceClient userServiceClient;
     
     public AuthenticationService(JwtTokenService jwtTokenService,
                                   TokenStorage tokenStorage,
-                                  PasswordEncoder passwordEncoder) {
+                                  PasswordEncoder passwordEncoder,
+                                  UserServiceClient userServiceClient) {
         this.jwtTokenService = jwtTokenService;
         this.tokenStorage = tokenStorage;
         this.passwordEncoder = passwordEncoder;
+        this.userServiceClient = userServiceClient;
     }
     
     /**
@@ -45,9 +49,8 @@ public class AuthenticationService {
                     "Account is temporarily locked due to too many failed attempts");
         }
         
-        // Find user and validate password
-        // In real implementation, this would call User Service
-        Optional<UserCredentials> userOpt = findUserByEmail(request.email());
+        // Find user credentials from User Service
+        Optional<UserCredentials> userOpt = userServiceClient.getUserCredentialsByEmail(request.email());
         
         if (userOpt.isEmpty() || !passwordEncoder.matches(request.password(), userOpt.get().passwordHash())) {
             tokenStorage.recordLoginAttempt(request.email(), false);
@@ -198,50 +201,10 @@ public class AuthenticationService {
         return Optional.of(claims);
     }
     
-    // ========================================
-    // MOCK USER LOOKUP (Replace with Feign Client)
-    // ========================================
-    
-    private Optional<UserCredentials> findUserByEmail(String email) {
-        // TODO: Replace with actual User Service call via Feign Client
-        // This is a mock for demonstration
-        if ("admin@foodexpress.com".equals(email)) {
-            return Optional.of(new UserCredentials(
-                    "user-001",
-                    "admin@foodexpress.com",
-                    passwordEncoder.encode("password123"),
-                    Set.of(Role.ADMIN, Role.CUSTOMER),
-                    Set.of(Permission.ADMIN_ACCESS, Permission.ORDER_READ_ALL),
-                    true,
-                    true,
-                    Instant.now().minus(Duration.ofDays(30)),
-                    0
-            ));
-        }
-        
-        if ("customer@foodexpress.com".equals(email)) {
-            return Optional.of(new UserCredentials(
-                    "user-002",
-                    "customer@foodexpress.com",
-                    passwordEncoder.encode("password123"),
-                    Set.of(Role.CUSTOMER),
-                    Set.of(Permission.ORDER_CREATE, Permission.ORDER_READ, Permission.PAYMENT_INITIATE),
-                    true,
-                    true,
-                    Instant.now().minus(Duration.ofDays(30)),
-                    0
-            ));
-        }
-        
-        return Optional.empty();
-    }
-    
+    /**
+     * Find user by ID from User Service
+     */
     private Optional<UserCredentials> findUserById(String userId) {
-        // TODO: Replace with actual User Service call
-        return switch (userId) {
-            case "user-001" -> findUserByEmail("admin@foodexpress.com");
-            case "user-002" -> findUserByEmail("customer@foodexpress.com");
-            default -> Optional.empty();
-        };
+        return userServiceClient.getUserCredentialsById(userId);
     }
 }
